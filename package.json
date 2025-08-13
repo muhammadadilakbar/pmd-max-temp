@@ -1,0 +1,16 @@
+{
+  "name": "pmd-max-temp",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "A Node.js program that parses a web page of Pakistan Meteorological Department and extracts maximum temperature of my city and stores in a database.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Muhammad Adil Akbar",
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^1.1.2",
+    "mongoose": "^8.17.1"
+  }
+}
