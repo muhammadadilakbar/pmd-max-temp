@@ -1,3 +1,4 @@
+//@ts-check
 import * as cheerio from "cheerio";
 import * as mongoose from "mongoose";
 import Temperature from "./models/temperature.js";
@@ -11,6 +12,7 @@ async function run() {
     // Create a Mongoose client with a MongoClientOptions object to set the Stable API version
     const uri = process.env.DB_URI;
     await mongoose.connect(uri, clientOptions);
+    // Don't know why the next wouldn't work
     //await mongoose.connection.db.admin().command({ ping: 1 });
     console.info(
       "Pinged your deployment. You successfully connected to MongoDB!"
@@ -63,14 +65,26 @@ async function createRecords(cityTemperatures) {
     return;
   }
   for (let temp of cityTemperatures) {
+    const station = temp.city.split(" ")[1];
+
     const newObj = {
       city: `Multan`,
-      station: temp.city.split(" ")[1],
+      station,
       temperature: temp.temperature,
       type: "max",
       dateString: temp.dateString,
     };
-    await Temperature.create(newObj);
+
+    // Check if today's temperatures already exist in DB
+
+    const existingTemp = await Temperature.findOne({
+      station,
+      dateString: temp.dateString,
+    });
+
+    if (!existingTemp) {
+      await Temperature.create(newObj);
+    }
   }
   await mongoose.disconnect();
   console.info(`Disconnected`);
@@ -94,4 +108,6 @@ async function main() {
   }
 }
 
+// Need this as PMD server SSL is misconfigured.
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 main();
