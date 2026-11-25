@@ -15,7 +15,7 @@ async function run() {
     // Don't know why the next wouldn't work
     //await mongoose.connection.db.admin().command({ ping: 1 });
     console.info(
-      "Pinged your deployment. You successfully connected to MongoDB!"
+      "Pinged your deployment. You successfully connected to MongoDB!",
     );
     return true;
   } catch (err) {
@@ -24,19 +24,29 @@ async function run() {
   }
 }
 
-function parse(html) {
-  const $ = cheerio.load(html);
+function parse(html, extreme) {
   const cityTemperatures = [];
+  let dateSelector = "";
+  let tableSelector = "";
 
-  const h3 = $("h3").text().trim();
-  const parenthesisIndex = h3.indexOf("(");
-  if (parenthesisIndex === -1) {
+  const $ = cheerio.load(html);
+
+  if (extreme === "min") {
+    dateSelector = "i.fa-temperature-low";
+    tableSelector = "table#minTempTable";
+  } else {
+    dateSelector = "i.fa-temperature-high";
+    tableSelector = "table#maxTempTable";
+  }
+
+  const dateString = $(dateSelector).parent().next().text();
+
+  if (!dateString) {
     throw new Error("Date not found!");
   }
-  const dateString = h3.substring(0, parenthesisIndex).trim();
 
   // AI Gemini
-  $("table tbody tr").each((i, element) => {
+  $(`${tableSelector} tr`).each((i, element) => {
     const firstTd = $(element).find("td").first();
     const temperatureTd = $(element).find("td").eq(1);
 
@@ -52,6 +62,7 @@ function parse(html) {
         city: cityName,
         temperature: temperature,
         dateString,
+        extreme,
       });
     }
   });
@@ -71,7 +82,7 @@ async function createRecords(cityTemperatures) {
       city: `Multan`,
       station,
       temperature: temp.temperature,
-      type: "max",
+      type: temp.extreme,
       dateString: temp.dateString,
     };
 
@@ -83,7 +94,7 @@ async function createRecords(cityTemperatures) {
     });
 
     if (!existingTemp) {
-      await Temperature.create(newObj);
+      // await Temperature.create(newObj);
     }
   }
   await mongoose.disconnect();
@@ -92,17 +103,28 @@ async function createRecords(cityTemperatures) {
 
 async function main() {
   try {
-    const init = { method: "GET" };
+    const init = {
+      method: "GET",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      },
+    };
+
     const response = await fetch(
-      "https://www.pmd.gov.pk/datadecoders/pmd-maxtemp-print-filtered.php?rmc=3",
-      init
+      "https://weather.gov.pk/regional/Punjab/print-highlights",
+      init,
     );
     if (!response.ok) {
       throw new Error(`Response status: ${response.status}`);
     }
     const html = await response.text();
-    const cityTemperatures = parse(html);
-    createRecords(cityTemperatures);
+    const extremes = ["min", "max"];
+
+    for (let extreme of extremes) {
+      const cityTemperatures = parse(html, extreme);
+      createRecords(cityTemperatures);
+    }
   } catch (err) {
     console.error(err);
   }
